@@ -1,0 +1,42 @@
+# Code is fixed to use Ubuntu 18.04 LTS images
+# Optimized for Offline use and kubernetes setup.
+
+FROM ubuntu:18.04
+MAINTAINER Jioh L. Jung "ziozzang@gmail.com"
+ARG ENVIRONMENT=development
+ENV ENVIRONMENT=${ENVIRONMENT}
+WORKDIR /powerdns-admin
+
+ADD ./supervisord.conf /etc/supervisord.conf
+ADD . /powerdns-admin/
+COPY ./configs/${ENVIRONMENT}.py /powerdns-admin/config.py
+COPY ./docker/PowerDNS-Admin/entrypoint.sh /entrypoint.sh
+COPY ./requirements.txt /powerdns-admin/requirements.txt
+
+# Node Fix
+COPY ./app/static/custom /powerdns-admin/app/static/custom
+
+# Set ENV.
+ENV LC_ALL en_US.UTF-8
+ENV LANG en_US.UTF-8
+ENV LANGUAGE en_US.UTF-8
+
+RUN apt-get update -y && \
+    apt-get install -y \
+      apt-transport-https locales locales-all build-essential python3-pip python3-dev supervisor curl mysql-client && \
+    apt-get install -y build-essential python3-pip python3-dev supervisor curl mysql-client && \
+    curl -sL https://deb.nodesource.com/setup_10.x | bash - && \
+    apt-get install -y nodejs && \
+    curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - && \
+    echo "deb https://dl.yarnpkg.com/debian/ stable main" > /etc/apt/sources.list.d/yarn.list && \
+    apt-get update -y && \
+    apt-get install -y yarn netcat libmysqlclient-dev libsasl2-dev libldap2-dev \
+      libssl-dev libxml2-dev libxslt1-dev libxmlsec1-dev libffi-dev pkg-config && \
+    pip3 install -r requirements.txt && \
+    mkdir -p /powerdns-admin/node_modules && \
+    chown -R www-data:www-data /powerdns-admin/app/static && \
+    chown -R www-data:www-data /powerdns-admin/node_modules && \
+    su -s /bin/bash -c 'yarn install --pure-lockfile' www-data
+
+
+ENTRYPOINT ["/entrypoint.sh"]
